@@ -76,7 +76,7 @@ if st.button("🤖 AI ile Analiz Et", type="primary", disabled=(not uploaded or 
     with st.spinner("Gemini AI analiz ediyor..."):
         try:
             genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel("gemini-2.0-flash")
+            model = genai.GenerativeModel("gemini-1.5-flash-8b")
             
             prompt = f"""Sen bir denizcilik navigasyon sistemleri uzmanısın. 
 Aşağıdaki malzeme listesini analiz et.
