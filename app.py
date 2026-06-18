@@ -79,26 +79,38 @@ if st.button("🤖 Claude ile Analiz Et", type="primary", disabled=(not uploaded
         try:
             client = anthropic.Anthropic(api_key=api_key)
 
-            prompt = f"""Sen bir denizcilik navigasyon sistemleri uzmanısın.
-Promar Deniz Malzemeleri şirketinin tekhat şemalarını çiziyorsun.
+            prompt = f"""Sen bir denizcilik navigasyon sistemleri uzmanisin.
+Promar Deniz Malzemeleri sirketinin tekhat semalarini ciziyorsun.
 
-GEMİ: {vessel}
+GEMI: {vessel}
 PROJE NO: {project_no}
 
-MALZEME LİSTESİ:
+MALZEME LISTESI:
 {rows_text}
 
-Her cihaz için lokasyon belirle:
+ONEMLI FILTRELEME KURALI:
+Asagidaki malzemeleri LISTEYE EKLEME (bunlar baglanti malzemesi, cihaz degil):
+- Kablolar (Cable, Kablo, Drop Cable, Backbone Cable, Extension Cable, Patch Cable)
+- Konnektorler (T-Piece, T-Connector, Connector, Joiner, Terminator)
+- NMEA2000 baglanti kitleri (Starter Kit, Backbone, Micro-C, Drop Cable)
+- Montaj malzemeleri (Mount Kit, Bracket, Pole Mount, Flush Mount)
+- Adaptorler ve donusturucu kablolar
+- Yedek aksesuarlar (Sun Cover, Magazines, Correctors, Mu-Stripes)
+- DC/DC Converter, guc kablolari
+
+SADECE GERCEK CIHAZLARI listele (ekranlar, radarlar, antenler, otopilot, AIS, VHF, 
+echosounder, GPS, pusula, hava istasyonu, isleyici uniteler vb.).
+Kablolari ve baglanti malzemelerini program kendisi hesaplayacak.
+
+Her cihaz icin lokasyon belirle:
 - MAST: Radarlar, antenler, GPS anten, hava istasyonu, uydu kubbesi, termal kamera
-- BRIDGE_CONSOLE: Ekranlar, AIS, VHF, kontrol panelleri, otopilot kontrol paneli, ECDIS, navtex
-- TECHNICAL_AREA: Radar islemcisi, ECDIS bilgisayari, junction box, NMEA buffer, sonar modulu, DC/DC converter
-- STEERING_ROOM: Otopilot bilgisayari (AC80S/NAC-2), rudder feedback (RF45X/RF40)
-- PORT_WING / STBD_WING: Kanat ekranlari (IS42), FU80
+- BRIDGE_CONSOLE: Ekranlar, AIS, VHF, kontrol panelleri, otopilot kontrol paneli, ECDIS, navtex, pusula
+- TECHNICAL_AREA: Radar islemcisi, ECDIS bilgisayari, junction box, NMEA buffer, sonar modulu, NEP
+- STEERING_ROOM: Otopilot bilgisayari (AC80S/AC80A/NAC-2), rudder feedback (RF45X/RF40)
+- PORT_WING / STBD_WING: Kanat ekranlari (IS42), FU80, QS80
 - CREWMESS: Salon ekrani
 - CPT_CABIN: Kaptan kabini ekrani
 - HULL: Transducer, speed log sensoru
-
-Kablo turleri: ethernet, display, nmea2000, nmea0183, simnet, coax
 
 Sadece gecerli JSON dondur, baska aciklama ekleme:
 {{
@@ -107,12 +119,11 @@ Sadece gecerli JSON dondur, baska aciklama ekleme:
     {{
       "id": "kisa_id",
       "marka": "SIMRAD",
-      "model": "NSO evo3S",
-      "etiket": "NSO evo3S",
-      "lokasyon": "TECHNICAL_AREA",
+      "model": "NSS12 evo3S",
+      "etiket": "NSS12 evo3S",
+      "lokasyon": "BRIDGE_CONSOLE",
       "guc": "+24V",
-      "adet": 1,
-      "baglantilar": [{{"hedef": "diger_id", "kablo": "ethernet"}}]
+      "adet": 1
     }}
   ]
 }}"""
@@ -183,4 +194,4 @@ if "layout_data" in st.session_state:
     with st.expander("🔧 Ham JSON"):
         st.json(data)
 
-    st.info("✅ Adım 1 tamamlandı! Çizim motoru (Adım 3) bir sonraki güncellemede eklenecek.")
+    st.info("✅ Kablolar filtrelendi! Sadece gerçek cihazlar listelendi. Çizim motoru (Adım 3) bir sonraki güncellemede.")
