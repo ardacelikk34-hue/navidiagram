@@ -29,7 +29,7 @@ CACHE_DIR.mkdir(exist_ok=True)
 if "image_cache" not in st.session_state:
     st.session_state["image_cache"] = {}
 
-# ─── GitHub kalıcı hafıza ─────────────────────────────────────────────────
+
 def github_headers():
     return {"Authorization": f"token {github_token}",
             "Accept": "application/vnd.github+json"}
@@ -37,7 +37,6 @@ def github_headers():
 
 @st.cache_data(ttl=300)
 def load_device_memory():
-    """GitHub'daki device_memory.json'u oku (hangi cihazın hangi görseli var)."""
     if not github_token or not github_repo:
         return {}
     try:
@@ -63,7 +62,6 @@ def github_get_sha(path):
 
 
 def github_upload(path, content_bytes, message):
-    """GitHub'a dosya yükle/güncelle."""
     if not github_token or not github_repo:
         return False
     try:
@@ -76,12 +74,11 @@ def github_upload(path, content_bytes, message):
         resp = requests.put(url, headers=github_headers(), json=payload, timeout=20)
         return resp.status_code in (200, 201)
     except Exception as e:
-        st.warning(f"GitHub yükleme hatası: {e}")
+        st.warning(f"GitHub yukleme hatasi: {e}")
         return False
 
 
 def save_device_image_to_github(device_key, local_path):
-    """Görseli GitHub'a kaydet ve hafızayı güncelle."""
     if not github_token:
         return False
     ext = Path(local_path).suffix.lstrip(".") or "png"
@@ -89,19 +86,17 @@ def save_device_image_to_github(device_key, local_path):
     with open(local_path, "rb") as f:
         content = f.read()
     if github_upload(gh_path, content, f"Add device image: {device_key}"):
-        # Hafızayı güncelle
         mem = load_device_memory()
         mem[device_key] = gh_path
         github_upload("device_images/device_memory.json",
                       json.dumps(mem, indent=2).encode("utf-8"),
                       f"Update memory: {device_key}")
-        load_device_memory.clear()  # cache temizle
+        load_device_memory.clear()
         return True
     return False
 
 
 def get_image_from_github(gh_path, device_key):
-    """GitHub'dan görsel indir."""
     try:
         url = f"https://raw.githubusercontent.com/{github_repo}/{github_branch}/{gh_path}"
         resp = requests.get(url, timeout=15)
@@ -116,14 +111,13 @@ def get_image_from_github(gh_path, device_key):
     return None
 
 
-# ─── Görsel arama ─────────────────────────────────────────────────────────
 def serp_search_urls(query, serp_key, n=8):
     try:
         params = {"engine": "google_images", "q": query, "api_key": serp_key, "num": n}
         resp = requests.get("https://serpapi.com/search", params=params, timeout=15)
         return [r.get("original") for r in resp.json().get("images_results", [])[:n] if r.get("original")]
     except Exception as e:
-        st.warning(f"Arama hatası: {e}")
+        st.warning(f"Arama hatasi: {e}")
         return []
 
 
@@ -147,19 +141,15 @@ def download_image(url, device_key, suffix=""):
 
 
 def find_image(device_key, query, serp_key):
-    """Önce GitHub hafıza, sonra session cache, sonra SerpAPI."""
     cache = st.session_state["image_cache"]
-    # 1. Session cache
     if device_key in cache and Path(cache[device_key]).exists():
         return cache[device_key], "session"
-    # 2. GitHub kalıcı hafıza
     mem = load_device_memory()
     if device_key in mem:
         path = get_image_from_github(mem[device_key], device_key)
         if path:
             cache[device_key] = path
             return path, "github"
-    # 3. SerpAPI ara
     if not serp_key:
         return None, "yok"
     for url in serp_search_urls(query, serp_key):
@@ -170,23 +160,30 @@ def find_image(device_key, query, serp_key):
     return None, "yok"
 
 
-# ─── Sidebar ──────────────────────────────────────────────────────────────
 with st.sidebar:
     st.header("⚙️ Ayarlar")
-    st.success("✅ Claude") if api_key else st.warning("Claude yok")
-    st.success("✅ SerpAPI") if serpapi_key else st.warning("SerpAPI yok")
-    st.success("✅ GitHub hafıza") if github_token else st.warning("GitHub hafıza yok")
+    if api_key:
+        st.success("✅ Claude")
+    else:
+        st.warning("Claude yok")
+    if serpapi_key:
+        st.success("✅ SerpAPI")
+    else:
+        st.warning("SerpAPI yok")
+    if github_token:
+        st.success("✅ GitHub hafiza")
+    else:
+        st.warning("GitHub hafiza yok")
     st.divider()
     mem = load_device_memory()
-    st.metric("Kalıcı hafızada cihaz", len(mem))
-    st.info("**Adımlar:**\n1. Excel yükle\n2. Cihazları çıkar\n3. Görselleri bul\n4. Şema oluştur")
+    st.metric("Kalici hafizada cihaz", len(mem))
+    st.info("**Adimlar:**\n1. Excel yukle\n2. Cihazlari cikar\n3. Gorselleri bul\n4. Sema olustur")
 
-# ─── Adım 1 ───────────────────────────────────────────────────────────────
 st.header("📋 Adım 1 — Malzeme Listesi Yükle")
 col1, col2 = st.columns([2, 1])
 with col1:
     uploaded = st.file_uploader("Excel malzeme listesi", type=["xlsx", "xls"])
-    vessel = st.text_input("Gemi adı", placeholder="Örn: MAGNOLIA 40MT")
+    vessel = st.text_input("Gemi adi", placeholder="Örn: MAGNOLIA 40MT")
     project_no = st.text_input("Proje no", placeholder="Örn: 000157")
 with col2:
     st.info("**Excel:** Malzeme Kodu | Malzeme | Birim | Miktar")
@@ -225,7 +222,7 @@ LISTEYE EKLEME. SADECE GERCEK CIHAZLARI listele.
 
 Dogru marka adini kullan: Cassens & Plath, Simrad, Sailor, Navico, ComNav, Furuno,
 B&G, Airmar, Intellian, FLIR, Actisense, Jotron, Phontech, Shakespeare.
-ASLA "PROJECTOR" yazma. Overhead Compass = Cassens & Plath markasidir.
+ASLA PROJECTOR yazma. Overhead Compass = Cassens & Plath markasidir.
 
 Lokasyonlar:
 - MAST: Radarlar, antenler, GPS anten, hava istasyonu, uydu kubbesi, termal kamera
@@ -267,7 +264,6 @@ Sadece gecerli JSON dondur:
             if 'raw' in locals():
                 st.code(raw)
 
-# ─── Adım 2 + 3 ───────────────────────────────────────────────────────────
 if "layout_data" in st.session_state:
     data = st.session_state["layout_data"]
     cihazlar = data.get("cihazlar", [])
@@ -303,7 +299,7 @@ if "layout_data" in st.session_state:
     st.header("🖼️ Adım 3 — Cihaz Görsellerini Bul")
 
     if not serpapi_key:
-        st.warning("SerpAPI key bulunamadı.")
+        st.warning("SerpAPI key bulunamadi.")
     else:
         if st.button("🔍 Tüm Görselleri Ara", type="primary"):
             yeni, gh, sess = 0, 0, 0
@@ -312,20 +308,23 @@ if "layout_data" in st.session_state:
             for idx, c in enumerate(cihazlar):
                 dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
                 q = c.get("gorsel_sorgu", f"{c.get('marka','')} {c.get('model','')} front view")
-                status.write(f"Aranıyor: {c.get('marka','')} {c.get('model','')}")
+                status.write(f"Araniyor: {c.get('marka','')} {c.get('model','')}")
                 path, kaynak = find_image(dk, q, serpapi_key)
                 if path:
                     c["gorsel"] = path
-                    if kaynak == "serpapi": yeni += 1
-                    elif kaynak == "github": gh += 1
-                    else: sess += 1
+                    if kaynak == "serpapi":
+                        yeni += 1
+                    elif kaynak == "github":
+                        gh += 1
+                    else:
+                        sess += 1
                 progress.progress((idx + 1) / len(cihazlar))
             status.empty()
             st.session_state["layout_data"] = data
-            st.success(f"✅ {yeni} yeni arama (SerpAPI) · {gh} kalıcı hafızadan (bedava) · {sess} oturumdan")
+            st.success(f"✅ {yeni} yeni arama · {gh} kalici hafizadan (bedava) · {sess} oturumdan")
             st.rerun()
 
-        st.write("**Görseli kontrol et. Doğruysa '💾 Hafızaya Kaydet'. Yanlışsa yeniden ara veya manuel yükle.**")
+        st.write("**Görseli kontrol et. Doğruysa Kaydet. Yanlışsa yeniden ara veya manuel yükle.**")
 
         for idx, c in enumerate(cihazlar):
             dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
@@ -350,7 +349,7 @@ if "layout_data" in st.session_state:
                     st.session_state["layout_data"] = data
                     st.rerun()
             with gc[3]:
-                up = st.file_uploader("yükle", type=["jpg", "jpeg", "png", "webp"],
+                up = st.file_uploader("yukle", type=["jpg", "jpeg", "png", "webp"],
                     key=f"up_{dk}_{idx}", label_visibility="collapsed")
                 if up:
                     fname = CACHE_DIR / f"{dk}_manual.png"
@@ -368,7 +367,6 @@ if "layout_data" in st.session_state:
                         else:
                             st.error("Hata")
 
-        # Toplu kaydet
         if github_token and st.button("💾 Tüm Görselleri Kalıcı Hafızaya Kaydet", type="secondary"):
             sayac = 0
             for idx, c in enumerate(cihazlar):
@@ -376,7 +374,7 @@ if "layout_data" in st.session_state:
                     dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
                     if save_device_image_to_github(dk, c["gorsel"]):
                         sayac += 1
-            st.success(f"✅ {sayac} görsel kalıcı hafızaya kaydedildi!")
+            st.success(f"✅ {sayac} gorsel kalici hafizaya kaydedildi!")
 
     with st.expander("🔧 Ham JSON"):
         st.json(data)
