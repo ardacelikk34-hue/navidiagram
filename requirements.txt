@@ -1,9 +1,6 @@
 streamlit
-google-generativeai
-pdfplumber
+anthropic
+openpyxl
 python-pptx
 Pillow
 requests
-openpyxl
-rembg
-numpy
