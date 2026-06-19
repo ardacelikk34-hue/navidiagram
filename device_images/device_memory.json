@@ -9,5 +9,6 @@
   "hs75_gps_compass": "device_images/hs75_gps_compass.png",
   "ais_v5043": "device_images/ais_v5043.png",
   "nep2_expansion": "device_images/nep2_expansion.png",
-  "halo20_radar": "device_images/halo20_radar.png"
+  "halo20_radar": "device_images/halo20_radar.png",
+  "xsonic_ss60_transducer": "device_images/xsonic_ss60_transducer.png"
 }
