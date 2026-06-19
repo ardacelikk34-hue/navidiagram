@@ -4,5 +4,6 @@
   "overhead_compass": "device_images/overhead_compass.png",
   "nss12_evo3s": "device_images/nss12_evo3s.png",
   "halo20_radar": "device_images/halo20_radar.png",
-  "xsonic_ss60": "device_images/xsonic_ss60.png"
+  "xsonic_ss60": "device_images/xsonic_ss60.png",
+  "110wx_weather": "device_images/110wx_weather.png"
 }
