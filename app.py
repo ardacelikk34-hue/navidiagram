@@ -519,12 +519,14 @@ if "layout_data" in st.session_state:
                     sayac_key = f"re_sayac_{dk}"
                     st.session_state[sayac_key] = st.session_state.get(sayac_key, 0) + 1
                     offset = st.session_state[sayac_key]
+                    # Bu cihazin TUM izlerini temizle (cache + manuel + nobg)
+                    st.session_state["image_cache"].pop(dk, None)
+                    if "manual_images" in st.session_state:
+                        st.session_state["manual_images"].pop(dk, None)
                     # Sorguyu tek cihaz + onden gorunum icin guclendir
                     guclu_sorgu = f"{ysorgu} single product white background front view isolated"
                     urls = serp_search_urls(guclu_sorgu, serpapi_key, n=12)
-                    st.session_state["image_cache"].pop(dk, None)
                     bulundu = False
-                    # offset kadar atla, siradaki sonuclari dene
                     for url in urls[offset:] + urls:
                         path = download_image(url, dk, suffix=f"_re{offset}")
                         if path:
