@@ -356,19 +356,30 @@ if "layout_data" in st.session_state:
     lokasyonlar = {}
     for c in cihazlar:
         lokasyonlar.setdefault(c.get("lokasyon", "BRIDGE_CONSOLE"), []).append(c)
+    silinecek_id = None
     for lok in lok_sirasi:
         if lok not in lokasyonlar:
             continue
         st.subheader(f"{ikonlar.get(lok,'⚫')} {lok} ({len(lokasyonlar[lok])})")
         for i, c in enumerate(lokasyonlar[lok]):
-            cols = st.columns([3, 1, 2])
+            cols = st.columns([3, 1, 2, 1])
             cols[0].write(f"**{c.get('marka','')} {c.get('model','')}**")
             cols[1].write(c.get('guc', '-'))
             cur = c.get('lokasyon', 'BRIDGE_CONSOLE')
-            new = cols[2].selectbox(f"lok_{c.get('id', i)}_{lok}", lok_options,
+            cid = c.get('id', f"{lok}_{i}")
+            new = cols[2].selectbox(f"lok_{cid}_{lok}", lok_options,
                 index=lok_options.index(cur) if cur in lok_options else 1,
                 label_visibility="collapsed")
             c["lokasyon"] = new
+            if cols[3].button("🗑️ Sil", key=f"del_{cid}_{lok}_{i}"):
+                silinecek_id = id(c)  # bu cihaz nesnesini isaretle
+
+    # Silme islemi
+    if silinecek_id is not None:
+        data["cihazlar"] = [x for x in cihazlar if id(x) != silinecek_id]
+        st.session_state["layout_data"] = data
+        st.rerun()
+
     st.session_state["layout_data"] = data
 
     st.divider()
