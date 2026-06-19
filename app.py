@@ -1,3 +1,15 @@
+# ============================================================================
+# NavDiagram - Navigasyon Tekhat Şeması Üreteci
+# ============================================================================
+# Bölümler:
+#   1. Kurulum ve API anahtarları
+#   2. Yardımcı fonksiyonlar (GitHub hafıza, görsel arama, arka plan)
+#   3. Sidebar (ayarlar + hafıza yönetimi)
+#   4. Adım 1: Excel yükleme + Claude analizi
+#   5. Adım 2: Cihaz listesi (düzenle, sil, lokasyon)
+#   6. Adım 3: Görsel arama (ara, yeniden ara, manuel, arka plan, kaydet)
+# ============================================================================
+
 import streamlit as st
 import anthropic
 import json
