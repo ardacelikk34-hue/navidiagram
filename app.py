@@ -412,10 +412,14 @@ if "layout_data" in st.session_state:
             with gc[4]:
                 if c.get("gorsel") and github_token:
                     if st.button("💾 Kaydet", key=f"sv_{dk}_{idx}"):
-                        if save_device_image_to_github(dk, c["gorsel"]):
-                            st.success("✅")
+                        if Path(c["gorsel"]).exists():
+                            if save_device_image_to_github(dk, c["gorsel"]):
+                                load_device_memory.clear()
+                                st.success("✅ Kaydedildi")
+                            else:
+                                st.error("❌ Hata")
                         else:
-                            st.error("Hata")
+                            st.error("❌ Görsel dosyası yok")
             with gc[5]:
                 if c.get("gorsel") and "_nobg" not in str(c.get("gorsel", "")):
                     if st.button("✂️ BG", key=f"bg_{dk}_{idx}"):
@@ -426,40 +430,31 @@ if "layout_data" in st.session_state:
                             st.session_state["layout_data"] = data
                             st.rerun()
 
-        if st.button("💾 Tüm Görselleri Kalıcı Hafızaya Kaydet", type="secondary"):
-            st.write("🔍 TEŞHİS BAŞLIYOR...")
-            st.write(f"- github_token var mı: {bool(github_token)}")
-            st.write(f"- github_repo: {github_repo}")
-            st.write(f"- github_branch: {github_branch}")
-            gorselli = [c for c in cihazlar if c.get("gorsel")]
-            st.write(f"- görseli olan cihaz sayısı: {len(gorselli)}")
-
+        st.divider()
+        if st.button("💾 Tüm Görselleri Kalıcı Hafızaya Kaydet", type="primary"):
+            gorselli = [c for c in cihazlar if c.get("gorsel") and Path(c["gorsel"]).exists()]
             if not github_token:
-                st.error("❌ GITHUB_TOKEN secrets'ta YOK. Streamlit Settings > Secrets kontrol et.")
-            elif not github_repo:
-                st.error("❌ GITHUB_REPO secrets'ta YOK.")
+                st.error("❌ GitHub token yok!")
             elif len(gorselli) == 0:
-                st.error("❌ Hiçbir cihazın görseli yok. Önce 'Görselleri Ara' yap.")
+                st.error("❌ Kaydedilecek görsel yok. Önce 'Tüm Görselleri Ara' yapın.")
             else:
-                # Token testi
-                test_url = f"https://api.github.com/repos/{github_repo}"
-                test_resp = requests.get(test_url, headers=github_headers(), timeout=10)
-                st.write(f"- GitHub repo erişim testi: HTTP {test_resp.status_code}")
-                if test_resp.status_code != 200:
-                    st.error(f"❌ Repoya erişilemiyor: {test_resp.text[:300]}")
-                else:
-                    st.success("✅ Token ve repo geçerli! Kaydetme başlıyor...")
-                    sayac = 0
-                    for idx, c in enumerate(cihazlar):
-                        if c.get("gorsel"):
-                            dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
-                            st.write(f"  Kaydediliyor: {dk} → {c['gorsel']}")
-                            if save_device_image_to_github(dk, c["gorsel"]):
-                                sayac += 1
-                                st.write(f"    ✅ {dk} kaydedildi")
-                            else:
-                                st.write(f"    ❌ {dk} kaydedilemedi")
-                    st.success(f"✅ Toplam {sayac} görsel kaydedildi!")
+                sayac = 0
+                hata = 0
+                kayit_durumu = st.empty()
+                for idx, c in enumerate(cihazlar):
+                    if c.get("gorsel") and Path(c["gorsel"]).exists():
+                        dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
+                        kayit_durumu.write(f"Kaydediliyor: {c.get('marka','')} {c.get('model','')}...")
+                        if save_device_image_to_github(dk, c["gorsel"]):
+                            sayac += 1
+                        else:
+                            hata += 1
+                kayit_durumu.empty()
+                if sayac > 0:
+                    st.success(f"✅ {sayac} görsel kalıcı hafızaya kaydedildi! (Sol paneldeki sayaç güncellenecek)")
+                if hata > 0:
+                    st.warning(f"⚠️ {hata} görsel kaydedilemedi.")
+                load_device_memory.clear()
 
     with st.expander("🔧 Ham JSON"):
         st.json(data)
