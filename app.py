@@ -62,7 +62,11 @@ def github_get_sha(path):
 
 
 def github_upload(path, content_bytes, message):
-    if not github_token or not github_repo:
+    if not github_token:
+        st.error("❌ GITHUB_TOKEN secrets'ta bulunamadı!")
+        return False
+    if not github_repo:
+        st.error("❌ GITHUB_REPO secrets'ta bulunamadı!")
         return False
     try:
         url = f"https://api.github.com/repos/{github_repo}/contents/{path}"
@@ -72,9 +76,13 @@ def github_upload(path, content_bytes, message):
         if sha:
             payload["sha"] = sha
         resp = requests.put(url, headers=github_headers(), json=payload, timeout=20)
-        return resp.status_code in (200, 201)
+        if resp.status_code in (200, 201):
+            return True
+        else:
+            st.error(f"❌ GitHub hatası {resp.status_code}: {resp.text[:300]}")
+            return False
     except Exception as e:
-        st.warning(f"GitHub yukleme hatasi: {e}")
+        st.error(f"❌ GitHub yükleme exception: {e}")
         return False
 
 
