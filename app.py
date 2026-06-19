@@ -30,6 +30,17 @@ if "image_cache" not in st.session_state:
     st.session_state["image_cache"] = {}
 
 
+def cihaz_anahtari(c):
+    """Cihaz icin sabit, tutarli anahtar uret (marka + model bazli, id'den bagimsiz)."""
+    marka = str(c.get("marka", "")).strip().lower()
+    model = str(c.get("model", "")).strip().lower()
+    anahtar = f"{marka}_{model}"
+    # Temizle: sadece harf, rakam, alt cizgi
+    import re
+    anahtar = re.sub(r"[^a-z0-9]+", "_", anahtar).strip("_")
+    return anahtar or "bilinmeyen"
+
+
 def github_headers():
     return {"Authorization": f"token {github_token}",
             "Accept": "application/vnd.github+json"}
@@ -387,7 +398,7 @@ if "layout_data" in st.session_state:
     # Manuel yuklenen gorselleri geri uygula (rerun sonrasi korunsun)
     if "manual_images" in st.session_state:
         for _idx, _c in enumerate(cihazlar):
-            _dk = _c.get("id", _c.get("model", f"dev{_idx}")).replace(" ", "_").lower()
+            _dk = cihaz_anahtari(_c)
             if _dk in st.session_state["manual_images"]:
                 _mp = st.session_state["manual_images"][_dk]
                 if Path(_mp).exists():
@@ -442,7 +453,7 @@ if "layout_data" in st.session_state:
             progress = st.progress(0)
             status = st.empty()
             for idx, c in enumerate(cihazlar):
-                dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
+                dk = cihaz_anahtari(c)
                 q = c.get("gorsel_sorgu", f"{c.get('marka','')} {c.get('model','')} front view")
                 status.write(f"Araniyor: {c.get('marka','')} {c.get('model','')}")
                 path, kaynak = find_image(dk, q, serpapi_key)
@@ -474,7 +485,7 @@ if "layout_data" in st.session_state:
                         nobg = remove_background(c["gorsel"])
                         if nobg:
                             c["gorsel"] = nobg
-                            dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
+                            dk = cihaz_anahtari(c)
                             st.session_state["image_cache"][dk] = nobg
                             silindi += 1
                     progress.progress((idx + 1) / len(cihazlar))
@@ -486,7 +497,7 @@ if "layout_data" in st.session_state:
         st.write("**Görseli kontrol et. Doğruysa Kaydet. Yanlışsa yeniden ara veya manuel yükle.**")
 
         for idx, c in enumerate(cihazlar):
-            dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
+            dk = cihaz_anahtari(c)
             gc = st.columns([1, 2, 2, 2, 1, 1])
             with gc[0]:
                 if c.get("gorsel"):
@@ -570,7 +581,7 @@ if "layout_data" in st.session_state:
                 kayit_durumu = st.empty()
                 for idx, c in enumerate(cihazlar):
                     if c.get("gorsel") and Path(c["gorsel"]).exists():
-                        dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
+                        dk = cihaz_anahtari(c)
                         kayit_durumu.write(f"Kaydediliyor: {c.get('marka','')} {c.get('model','')}...")
                         if save_device_image_to_github(dk, c["gorsel"]):
                             sayac += 1
