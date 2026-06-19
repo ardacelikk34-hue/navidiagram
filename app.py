@@ -515,16 +515,29 @@ if "layout_data" in st.session_state:
                 ysorgu = st.text_input("sorgu", value=c.get("gorsel_sorgu", ""),
                     key=f"q_{dk}_{idx}", label_visibility="collapsed")
                 if st.button("🔄 Yeniden Ara", key=f"re_{dk}_{idx}"):
+                    # Her basista siradaki farkli sonucu getir
+                    sayac_key = f"re_sayac_{dk}"
+                    st.session_state[sayac_key] = st.session_state.get(sayac_key, 0) + 1
+                    offset = st.session_state[sayac_key]
+                    # Sorguyu tek cihaz + onden gorunum icin guclendir
+                    guclu_sorgu = f"{ysorgu} single product white background front view isolated"
+                    urls = serp_search_urls(guclu_sorgu, serpapi_key, n=12)
                     st.session_state["image_cache"].pop(dk, None)
-                    for url in serp_search_urls(ysorgu, serpapi_key):
-                        path = download_image(url, dk, suffix="_re")
+                    bulundu = False
+                    # offset kadar atla, siradaki sonuclari dene
+                    for url in urls[offset:] + urls:
+                        path = download_image(url, dk, suffix=f"_re{offset}")
                         if path:
                             c["gorsel"] = path
                             c["kaynak"] = "serpapi"
                             st.session_state["image_cache"][dk] = path
+                            bulundu = True
                             break
                     st.session_state["layout_data"] = data
-                    st.rerun()
+                    if bulundu:
+                        st.rerun()
+                    else:
+                        st.warning("Baska gorsel bulunamadi")
             with gc[3]:
                 up = st.file_uploader("yukle", type=["jpg", "jpeg", "png", "webp"],
                     key=f"up_{dk}_{idx}", label_visibility="collapsed")
