@@ -89,11 +89,21 @@ def github_upload(path, content_bytes, message):
 def save_device_image_to_github(device_key, local_path):
     if not github_token:
         return False
-    ext = Path(local_path).suffix.lstrip(".") or "png"
+    p = Path(local_path)
+    if not p.exists():
+        st.error(f"❌ Dosya bulunamadi: {local_path}")
+        return False
+    # Uzanti normalize et (jpeg/webp dahil)
+    ext = p.suffix.lstrip(".").lower() or "png"
+    if ext == "jpeg":
+        ext = "jpg"
     gh_path = f"device_images/{device_key}.{ext}"
     with open(local_path, "rb") as f:
-        content = f.read()
-    if github_upload(gh_path, content, f"Add device image: {device_key}"):
+        file_content = f.read()
+    if len(file_content) == 0:
+        st.error(f"❌ Dosya bos: {local_path}")
+        return False
+    if github_upload(gh_path, file_content, f"Add device image: {device_key}"):
         mem = load_device_memory()
         mem[device_key] = gh_path
         github_upload("device_images/device_memory.json",
@@ -402,12 +412,19 @@ if "layout_data" in st.session_state:
                 up = st.file_uploader("yukle", type=["jpg", "jpeg", "png", "webp"],
                     key=f"up_{dk}_{idx}", label_visibility="collapsed")
                 if up:
-                    fname = CACHE_DIR / f"{dk}_manual.png"
+                    import hashlib
+                    raw_bytes = up.read()
+                    # Benzersiz dosya adi: cihaz + icerik hash
+                    h = hashlib.md5(raw_bytes).hexdigest()[:8]
+                    ext = Path(up.name).suffix or ".png"
+                    fname = CACHE_DIR / f"{dk}_manual_{h}{ext}"
                     with open(fname, "wb") as f:
-                        f.write(up.read())
+                        f.write(raw_bytes)
                     c["gorsel"] = str(fname)
+                    c["manuel"] = True  # manuel yuklendi isareti
                     st.session_state["image_cache"][dk] = str(fname)
                     st.session_state["layout_data"] = data
+                    st.success("✅ Yüklendi")
                     st.rerun()
             with gc[4]:
                 if c.get("gorsel") and github_token:
