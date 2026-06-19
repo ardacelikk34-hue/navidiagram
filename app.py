@@ -139,6 +139,29 @@ def serp_search_urls(query, serp_key, n=8):
         return []
 
 
+def gecerli_gorsel_mi(path):
+    """Dosya gercekten acilabilir bir resim mi?"""
+    try:
+        from PIL import Image
+        with Image.open(path) as im:
+            im.verify()
+        return True
+    except Exception:
+        return False
+
+
+def guvenli_goster(path, width=85):
+    """Gorseli guvenli goster, bozuksa çökme."""
+    try:
+        if path and Path(path).exists() and gecerli_gorsel_mi(path):
+            st.image(path, width=width)
+            return True
+    except Exception:
+        pass
+    st.caption("⚠️ Görsel geçersiz")
+    return False
+
+
 def download_image(url, device_key, suffix=""):
     try:
         resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
@@ -150,9 +173,15 @@ def download_image(url, device_key, suffix=""):
             f.write(resp.content)
         from PIL import Image
         img = Image.open(fname)
+        img.verify()  # bozuk mu kontrol
+        img = Image.open(fname)  # verify sonrasi tekrar ac
         if img.size[0] < 80 or img.size[1] < 80:
             fname.unlink()
             return None
+        # RGBA/RGB'ye cevir (palette transparency uyarisini onler)
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGBA")
+            img.save(fname)
         return str(fname)
     except Exception:
         return None
@@ -306,6 +335,15 @@ if "layout_data" in st.session_state:
     data = st.session_state["layout_data"]
     cihazlar = data.get("cihazlar", [])
 
+    # Manuel yuklenen gorselleri geri uygula (rerun sonrasi korunsun)
+    if "manual_images" in st.session_state:
+        for _idx, _c in enumerate(cihazlar):
+            _dk = _c.get("id", _c.get("model", f"dev{_idx}")).replace(" ", "_").lower()
+            if _dk in st.session_state["manual_images"]:
+                _mp = st.session_state["manual_images"][_dk]
+                if Path(_mp).exists():
+                    _c["gorsel"] = _mp
+
     st.divider()
     st.header("🔍 Adım 2 — Cihazları Gözden Geçir")
 
@@ -390,8 +428,8 @@ if "layout_data" in st.session_state:
             dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
             gc = st.columns([1, 2, 2, 2, 1, 1])
             with gc[0]:
-                if c.get("gorsel") and Path(c["gorsel"]).exists():
-                    st.image(c["gorsel"], width=85)
+                if c.get("gorsel"):
+                    guvenli_goster(c["gorsel"], width=85)
                 else:
                     st.caption("❌")
             gc[1].write(f"**{c.get('marka','')}**\n\n{c.get('model','')}")
@@ -411,21 +449,21 @@ if "layout_data" in st.session_state:
             with gc[3]:
                 up = st.file_uploader("yukle", type=["jpg", "jpeg", "png", "webp"],
                     key=f"up_{dk}_{idx}", label_visibility="collapsed")
-                if up:
+                if up is not None:
                     import hashlib
-                    raw_bytes = up.read()
-                    # Benzersiz dosya adi: cihaz + icerik hash
+                    raw_bytes = up.getvalue()
                     h = hashlib.md5(raw_bytes).hexdigest()[:8]
-                    ext = Path(up.name).suffix or ".png"
+                    ext = Path(up.name).suffix.lower() or ".png"
                     fname = CACHE_DIR / f"{dk}_manual_{h}{ext}"
                     with open(fname, "wb") as f:
                         f.write(raw_bytes)
+                    # Kalici olarak manuel secimi sakla (rerun sonrasi kaybolmasin)
+                    if "manual_images" not in st.session_state:
+                        st.session_state["manual_images"] = {}
+                    st.session_state["manual_images"][dk] = str(fname)
                     c["gorsel"] = str(fname)
-                    c["manuel"] = True  # manuel yuklendi isareti
                     st.session_state["image_cache"][dk] = str(fname)
-                    st.session_state["layout_data"] = data
-                    st.success("✅ Yüklendi")
-                    st.rerun()
+                    st.success(f"✅ Yüklendi ({len(raw_bytes)//1024} KB)")
             with gc[4]:
                 if c.get("gorsel") and github_token:
                     if st.button("💾 Kaydet", key=f"sv_{dk}_{idx}"):
