@@ -140,6 +140,26 @@ def download_image(url, device_key, suffix=""):
         return None
 
 
+def remove_background(image_path):
+    """rembg ile arka plani sil, seffaf PNG dondur."""
+    try:
+        from rembg import remove
+        from PIL import Image
+        inp = Path(image_path)
+        outp = inp.parent / (inp.stem + "_nobg.png")
+        if outp.exists():
+            return str(outp)
+        with open(image_path, "rb") as f:
+            data_in = f.read()
+        data_out = remove(data_in)
+        with open(outp, "wb") as f:
+            f.write(data_out)
+        return str(outp)
+    except Exception as e:
+        st.warning(f"Arka plan silme hatasi: {e}")
+        return None
+
+
 def find_image(device_key, query, serp_key):
     cache = st.session_state["image_cache"]
     if device_key in cache and Path(cache[device_key]).exists():
@@ -324,11 +344,33 @@ if "layout_data" in st.session_state:
             st.success(f"✅ {yeni} yeni arama · {gh} kalici hafizadan (bedava) · {sess} oturumdan")
             st.rerun()
 
+        # Arka plan silme
+        col_bg1, col_bg2 = st.columns(2)
+        with col_bg1:
+            if st.button("✂️ Tüm Arka Planları Sil", type="secondary"):
+                progress = st.progress(0)
+                status = st.empty()
+                silindi = 0
+                for idx, c in enumerate(cihazlar):
+                    if c.get("gorsel") and Path(c["gorsel"]).exists() and "_nobg" not in c["gorsel"]:
+                        status.write(f"Temizleniyor: {c.get('marka','')} {c.get('model','')}")
+                        nobg = remove_background(c["gorsel"])
+                        if nobg:
+                            c["gorsel"] = nobg
+                            dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
+                            st.session_state["image_cache"][dk] = nobg
+                            silindi += 1
+                    progress.progress((idx + 1) / len(cihazlar))
+                status.empty()
+                st.session_state["layout_data"] = data
+                st.success(f"✅ {silindi} görselin arka planı silindi!")
+                st.rerun()
+
         st.write("**Görseli kontrol et. Doğruysa Kaydet. Yanlışsa yeniden ara veya manuel yükle.**")
 
         for idx, c in enumerate(cihazlar):
             dk = c.get("id", c.get("model", f"dev{idx}")).replace(" ", "_").lower()
-            gc = st.columns([1, 2, 2, 2, 1])
+            gc = st.columns([1, 2, 2, 2, 1, 1])
             with gc[0]:
                 if c.get("gorsel") and Path(c["gorsel"]).exists():
                     st.image(c["gorsel"], width=85)
@@ -366,6 +408,15 @@ if "layout_data" in st.session_state:
                             st.success("✅")
                         else:
                             st.error("Hata")
+            with gc[5]:
+                if c.get("gorsel") and "_nobg" not in str(c.get("gorsel", "")):
+                    if st.button("✂️ BG", key=f"bg_{dk}_{idx}"):
+                        nobg = remove_background(c["gorsel"])
+                        if nobg:
+                            c["gorsel"] = nobg
+                            st.session_state["image_cache"][dk] = nobg
+                            st.session_state["layout_data"] = data
+                            st.rerun()
 
         if github_token and st.button("💾 Tüm Görselleri Kalıcı Hafızaya Kaydet", type="secondary"):
             sayac = 0
