@@ -455,15 +455,18 @@ if "layout_data" in st.session_state:
                     h = hashlib.md5(raw_bytes).hexdigest()[:8]
                     ext = Path(up.name).suffix.lower() or ".png"
                     fname = CACHE_DIR / f"{dk}_manual_{h}{ext}"
-                    with open(fname, "wb") as f:
-                        f.write(raw_bytes)
-                    # Kalici olarak manuel secimi sakla (rerun sonrasi kaybolmasin)
-                    if "manual_images" not in st.session_state:
-                        st.session_state["manual_images"] = {}
-                    st.session_state["manual_images"][dk] = str(fname)
-                    c["gorsel"] = str(fname)
-                    st.session_state["image_cache"][dk] = str(fname)
-                    st.success(f"✅ Yüklendi ({len(raw_bytes)//1024} KB)")
+                    # Ayni dosya zaten islendiyse tekrar rerun yapma (sonsuz dongu onlemi)
+                    onceki = st.session_state.get("manual_images", {}).get(dk)
+                    if onceki != str(fname):
+                        with open(fname, "wb") as f:
+                            f.write(raw_bytes)
+                        if "manual_images" not in st.session_state:
+                            st.session_state["manual_images"] = {}
+                        st.session_state["manual_images"][dk] = str(fname)
+                        c["gorsel"] = str(fname)
+                        st.session_state["image_cache"][dk] = str(fname)
+                        st.session_state["layout_data"] = data
+                        st.rerun()
             with gc[4]:
                 if c.get("gorsel") and github_token:
                     if st.button("💾 Kaydet", key=f"sv_{dk}_{idx}"):
