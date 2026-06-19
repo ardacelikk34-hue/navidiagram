@@ -515,31 +515,38 @@ if "layout_data" in st.session_state:
                 ysorgu = st.text_input("sorgu", value=c.get("gorsel_sorgu", ""),
                     key=f"q_{dk}_{idx}", label_visibility="collapsed")
                 if st.button("🔄 Yeniden Ara", key=f"re_{dk}_{idx}"):
-                    # Her basista siradaki farkli sonucu getir
+                    # URL listesini bir kez cek ve sakla (sayac ile sirayla gez)
+                    urls_key = f"re_urls_{dk}"
                     sayac_key = f"re_sayac_{dk}"
-                    st.session_state[sayac_key] = st.session_state.get(sayac_key, 0) + 1
-                    offset = st.session_state[sayac_key]
-                    # Bu cihazin TUM izlerini temizle (cache + manuel + nobg)
+                    # Ilk basista veya liste yoksa yeni arama yap
+                    if urls_key not in st.session_state:
+                        guclu_sorgu = f"{ysorgu} single product white background front view isolated"
+                        st.session_state[urls_key] = serp_search_urls(guclu_sorgu, serpapi_key, n=15)
+                        st.session_state[sayac_key] = -1
+                    urls = st.session_state[urls_key]
+                    # Bu cihazin eski izlerini temizle
                     st.session_state["image_cache"].pop(dk, None)
                     if "manual_images" in st.session_state:
                         st.session_state["manual_images"].pop(dk, None)
-                    # Sorguyu tek cihaz + onden gorunum icin guclendir
-                    guclu_sorgu = f"{ysorgu} single product white background front view isolated"
-                    urls = serp_search_urls(guclu_sorgu, serpapi_key, n=12)
                     bulundu = False
-                    for url in urls[offset:] + urls:
-                        path = download_image(url, dk, suffix=f"_re{offset}")
-                        if path:
-                            c["gorsel"] = path
-                            c["kaynak"] = "serpapi"
-                            st.session_state["image_cache"][dk] = path
-                            bulundu = True
-                            break
+                    if urls:
+                        # Siradaki url'yi dene, sonuna gelince basa don
+                        denenecek = len(urls)
+                        for _ in range(denenecek):
+                            st.session_state[sayac_key] = (st.session_state.get(sayac_key, -1) + 1) % len(urls)
+                            i = st.session_state[sayac_key]
+                            path = download_image(urls[i], dk, suffix=f"_re{i}")
+                            if path:
+                                c["gorsel"] = path
+                                c["kaynak"] = "serpapi"
+                                st.session_state["image_cache"][dk] = path
+                                bulundu = True
+                                break
                     st.session_state["layout_data"] = data
                     if bulundu:
                         st.rerun()
                     else:
-                        st.warning("Baska gorsel bulunamadi")
+                        st.warning("Baska gorsel bulunamadi, sorguyu degistirip tekrar deneyin")
             with gc[3]:
                 up = st.file_uploader("yukle", type=["jpg", "jpeg", "png", "webp"],
                     key=f"up_{dk}_{idx}", label_visibility="collapsed")
