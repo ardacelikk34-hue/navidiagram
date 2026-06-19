@@ -86,6 +86,40 @@ def github_upload(path, content_bytes, message):
         return False
 
 
+def github_delete_file(path, message):
+    """GitHub'dan dosya sil."""
+    if not github_token:
+        return False
+    try:
+        sha = github_get_sha(path)
+        if not sha:
+            return True  # zaten yok
+        url = f"https://api.github.com/repos/{github_repo}/contents/{path}"
+        payload = {"message": message, "sha": sha, "branch": github_branch}
+        resp = requests.delete(url, headers=github_headers(), json=payload, timeout=20)
+        return resp.status_code in (200, 201)
+    except Exception as e:
+        st.error(f"❌ Silme hatasi: {e}")
+        return False
+
+
+def delete_device_from_memory(device_key):
+    """Bir cihazi kalici hafizadan tamamen sil (gorsel + memory kaydi)."""
+    mem = load_device_memory()
+    if device_key not in mem:
+        return False
+    gh_path = mem[device_key]
+    # 1. Gorseli sil
+    github_delete_file(gh_path, f"Delete device image: {device_key}")
+    # 2. Memory'den cikar
+    del mem[device_key]
+    github_upload("device_images/device_memory.json",
+                  json.dumps(mem, indent=2).encode("utf-8"),
+                  f"Remove from memory: {device_key}")
+    load_device_memory.clear()
+    return True
+
+
 def save_device_image_to_github(device_key, local_path):
     if not github_token:
         return False
@@ -244,6 +278,21 @@ with st.sidebar:
     st.divider()
     mem = load_device_memory()
     st.metric("Kalici hafizada cihaz", len(mem))
+
+    # Kalici Hafiza Yonetimi
+    if github_token and len(mem) > 0:
+        with st.expander("🗑️ Hafıza Yönetimi"):
+            st.caption("Bir cihazı kalıcı hafızadan silmek için 🗑️ butonuna basın.")
+            for mdk in sorted(mem.keys()):
+                mc1, mc2 = st.columns([3, 1])
+                mc1.write(mdk)
+                if mc2.button("🗑️", key=f"memdel_{mdk}"):
+                    if delete_device_from_memory(mdk):
+                        st.success(f"✅ {mdk} silindi")
+                        st.rerun()
+                    else:
+                        st.error("Silinemedi")
+
     st.info("**Adimlar:**\n1. Excel yukle\n2. Cihazlari cikar\n3. Gorselleri bul\n4. Sema olustur")
 
 st.header("📋 Adım 1 — Malzeme Listesi Yükle")
