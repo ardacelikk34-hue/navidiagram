@@ -448,6 +448,7 @@ if "layout_data" in st.session_state:
                 path, kaynak = find_image(dk, q, serpapi_key)
                 if path:
                     c["gorsel"] = path
+                    c["kaynak"] = kaynak  # nereden geldigini kaydet
                     if kaynak == "serpapi":
                         yeni += 1
                     elif kaynak == "github":
@@ -492,7 +493,13 @@ if "layout_data" in st.session_state:
                     guvenli_goster(c["gorsel"], width=85)
                 else:
                     st.caption("❌")
-            gc[1].write(f"**{c.get('marka','')}**\n\n{c.get('model','')}")
+            kaynak_etiket = {
+                "github": "💚 Hafızadan (bedava)",
+                "serpapi": "🔍 Yeni arama (token harcandı)",
+                "manuel": "📁 Manuel yüklendi",
+                "session": "⚡ Oturumdan",
+            }.get(c.get("kaynak", ""), "")
+            gc[1].write(f"**{c.get('marka','')}**\n\n{c.get('model','')}\n\n{kaynak_etiket}")
             with gc[2]:
                 ysorgu = st.text_input("sorgu", value=c.get("gorsel_sorgu", ""),
                     key=f"q_{dk}_{idx}", label_visibility="collapsed")
@@ -502,6 +509,7 @@ if "layout_data" in st.session_state:
                         path = download_image(url, dk, suffix="_re")
                         if path:
                             c["gorsel"] = path
+                            c["kaynak"] = "serpapi"
                             st.session_state["image_cache"][dk] = path
                             break
                     st.session_state["layout_data"] = data
@@ -524,6 +532,7 @@ if "layout_data" in st.session_state:
                             st.session_state["manual_images"] = {}
                         st.session_state["manual_images"][dk] = str(fname)
                         c["gorsel"] = str(fname)
+                        c["kaynak"] = "manuel"
                         st.session_state["image_cache"][dk] = str(fname)
                         st.session_state["layout_data"] = data
                         st.rerun()
