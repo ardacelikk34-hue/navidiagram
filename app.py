@@ -143,14 +143,13 @@ def delete_device_from_memory(device_key):
     return True
 
 
-def save_device_image_to_github(device_key, local_path):
+def _upload_image_only(device_key, local_path):
+    """Sadece gorseli yukle, memory'ye DOKUNMA. (gh_path doner veya None)"""
     if not github_token:
-        return False
+        return None
     p = Path(local_path)
     if not p.exists():
-        st.error(f"❌ Dosya bulunamadi: {local_path}")
-        return False
-    # Uzanti normalize et (jpeg/webp dahil)
+        return None
     ext = p.suffix.lstrip(".").lower() or "png"
     if ext == "jpeg":
         ext = "jpg"
@@ -158,15 +157,28 @@ def save_device_image_to_github(device_key, local_path):
     with open(local_path, "rb") as f:
         file_content = f.read()
     if len(file_content) == 0:
-        st.error(f"❌ Dosya bos: {local_path}")
-        return False
+        return None
     if github_upload(gh_path, file_content, f"Add device image: {device_key}"):
-        mem = load_device_memory()
-        mem[device_key] = gh_path
-        github_upload("device_images/device_memory.json",
-                      json.dumps(mem, indent=2).encode("utf-8"),
-                      f"Update memory: {device_key}")
-        load_device_memory.clear()
+        return gh_path
+    return None
+
+
+def _update_memory(yeni_kayitlar):
+    """memory.json'u TEK SEFERDE guncelle (cakisma onlemi)."""
+    mem = load_device_memory()
+    mem.update(yeni_kayitlar)
+    ok = github_upload("device_images/device_memory.json",
+                       json.dumps(mem, indent=2).encode("utf-8"),
+                       f"Update memory ({len(yeni_kayitlar)} cihaz)")
+    load_device_memory.clear()
+    return ok
+
+
+def save_device_image_to_github(device_key, local_path):
+    """Tek cihaz kaydet (gorsel + memory)."""
+    gh_path = _upload_image_only(device_key, local_path)
+    if gh_path:
+        _update_memory({device_key: gh_path})
         return True
     return False
 
@@ -612,21 +624,27 @@ if "layout_data" in st.session_state:
             else:
                 sayac = 0
                 hata = 0
+                yeni_kayitlar = {}
                 kayit_durumu = st.empty()
+                # 1) Once tum gorselleri yukle (memory'ye dokunmadan)
                 for idx, c in enumerate(cihazlar):
                     if c.get("gorsel") and Path(c["gorsel"]).exists():
                         dk = cihaz_anahtari(c)
                         kayit_durumu.write(f"Kaydediliyor: {c.get('marka','')} {c.get('model','')}...")
-                        if save_device_image_to_github(dk, c["gorsel"]):
+                        gh_path = _upload_image_only(dk, c["gorsel"])
+                        if gh_path:
+                            yeni_kayitlar[dk] = gh_path
                             sayac += 1
                         else:
                             hata += 1
+                # 2) memory.json'u TEK SEFERDE guncelle (cakisma yok)
+                if yeni_kayitlar:
+                    _update_memory(yeni_kayitlar)
                 kayit_durumu.empty()
                 if sayac > 0:
-                    st.success(f"✅ {sayac} görsel kalıcı hafızaya kaydedildi! (Sol paneldeki sayaç güncellenecek)")
+                    st.success(f"✅ {sayac} görsel kalıcı hafızaya kaydedildi!")
                 if hata > 0:
                     st.warning(f"⚠️ {hata} görsel kaydedilemedi.")
-                load_device_memory.clear()
 
     with st.expander("🔧 Ham JSON"):
         st.json(data)
