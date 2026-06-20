@@ -43,14 +43,55 @@ if "image_cache" not in st.session_state:
 
 
 def cihaz_anahtari(c):
-    """Cihaz icin sabit, tutarli anahtar uret (marka + model bazli, id'den bagimsiz)."""
+    """Cihaz icin sabit, tutarli anahtar uret. Yazim farklarini yok sayar.
+    Ornek: 'NSS12 evo3S', 'NSS12 EVO3S MFD', 'NSS-12 evo3s display' -> ayni anahtar."""
+    import re
     marka = str(c.get("marka", "")).strip().lower()
     model = str(c.get("model", "")).strip().lower()
-    anahtar = f"{marka}_{model}"
-    # Temizle: sadece harf, rakam, alt cizgi
-    import re
-    anahtar = re.sub(r"[^a-z0-9]+", "_", anahtar).strip("_")
+
+    # Gereksiz kelimeleri temizle (cihaz tipini belirten ama modeli degistirmeyen ekler)
+    cop_kelimeler = [
+        "mfd", "display", "unit", "system", "kit", "with", "w/", "and",
+        "monitor", "screen", "transducer", "antenna", "anten", "control",
+        "controller", "computer", "module", "sensor", "processor", "pack",
+        "class", "imo", "marine", "new", "set", "package", "adet", "pcs",
+        "compass", "radar", "gps", "vhf", "ais", "echosounder", "sounder",
+        "thru-hull", "thru", "hull", "dome", "compact", "ultrasonic",
+        "weather", "station", "autopilot", "chartplotter", "digital",
+        "instrument", "remote", "pulse", "compression"
+    ]
+
+    metin = f"{marka} {model}"
+    # Noktalama -> bosluk
+    metin = re.sub(r"[^a-z0-9]+", " ", metin)
+    kelimeler = [k for k in metin.split() if k and k not in cop_kelimeler]
+    anahtar = "_".join(kelimeler)
     return anahtar or "bilinmeyen"
+
+
+def _benzerlik(a, b):
+    """Iki anahtar arasi benzerlik orani (0-1)."""
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, a, b).ratio()
+
+
+def hafizada_bul(device_key, mem):
+    """Hafizada tam veya benzer anahtar ara. Bulursa (anahtar, gh_path) doner."""
+    # 1. Tam eslesme
+    if device_key in mem:
+        return device_key, mem[device_key]
+    # 2. Benzer eslesme (yazim farklarini tolere et)
+    en_iyi = None
+    en_iyi_oran = 0.0
+    for k in mem.keys():
+        oran = _benzerlik(device_key, k)
+        if oran > en_iyi_oran:
+            en_iyi_oran = oran
+            en_iyi = k
+    # %75 ustu benzerlik = ayni cihaz say
+    if en_iyi and en_iyi_oran >= 0.75:
+        return en_iyi, mem[en_iyi]
+    return None, None
 
 
 def github_headers():
@@ -281,8 +322,9 @@ def find_image(device_key, query, serp_key):
     if device_key in cache and Path(cache[device_key]).exists():
         return cache[device_key], "session"
     mem = load_device_memory()
-    if device_key in mem:
-        path = get_image_from_github(mem[device_key], device_key)
+    bulunan_anahtar, gh_path = hafizada_bul(device_key, mem)
+    if gh_path:
+        path = get_image_from_github(gh_path, device_key)
         if path:
             cache[device_key] = path
             return path, "github"
