@@ -1,5 +1,6 @@
 {
   "simrad_nsx_3015_ultrawide": "device_images/simrad_nsx_3015_ultrawide.png",
   "simrad_xsonic_p319_50_200_khz_thru_hull_transducer": "device_images/simrad_xsonic_p319_50_200_khz_thru_hull_transducer.png",
-  "simrad_nss12_evo3s": "device_images/simrad_nss12_evo3s.png"
+  "simrad_nss12_evo3s": "device_images/simrad_nss12_evo3s.png",
+  "simrad_halo_20": "device_images/simrad_halo_20.png"
 }
