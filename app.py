@@ -19,9 +19,82 @@ import base64
 import requests
 from pathlib import Path
 
-st.set_page_config(page_title="NavDiagram – Tekhat Şeması", page_icon="🚢", layout="wide")
-st.title("🚢 Navigasyon Tekhat Şeması Üreteci")
-st.caption("Malzeme listesinden otomatik Promar formatında tekhat şeması")
+st.set_page_config(page_title="Promar NavDiagram", page_icon="🚢", layout="wide")
+
+# ─── Kurumsal denizcilik teması (CSS) ───────────────────────────────────────
+st.markdown("""
+<style>
+    /* Ana renk paleti - denizci lacivert/mavi */
+    :root {
+        --promar-lacivert: #1B2A4A;
+        --promar-mavi: #2C5697;
+        --promar-acik-mavi: #4A90D9;
+        --promar-gri: #F4F6F9;
+    }
+    /* Uygulama arka plani */
+    .stApp {
+        background: linear-gradient(180deg, #F4F6F9 0%, #E8EEF5 100%);
+    }
+    /* Ust logo bandi */
+    .promar-header {
+        text-align: center;
+        padding: 10px 0 0 0;
+    }
+    .promar-title {
+        text-align: center;
+        color: #1B2A4A;
+        font-size: 30px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        margin: 8px 0 2px 0;
+    }
+    .promar-subtitle {
+        text-align: center;
+        color: #2C5697;
+        font-size: 15px;
+        margin-bottom: 6px;
+    }
+    .promar-divider {
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #2C5697, #4A90D9, #2C5697, transparent);
+        border: none;
+        margin: 10px 0 24px 0;
+        border-radius: 2px;
+    }
+    /* Baslıklar */
+    h2, h3 {
+        color: #1B2A4A !important;
+    }
+    /* Butonlar */
+    .stButton button[kind="primary"] {
+        background: linear-gradient(135deg, #2C5697 0%, #4A90D9 100%);
+        border: none;
+        font-weight: 600;
+    }
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #1B2A4A 0%, #2C5697 100%);
+    }
+    section[data-testid="stSidebar"] * {
+        color: #FFFFFF;
+    }
+    section[data-testid="stSidebar"] .stAlert {
+        background: rgba(255,255,255,0.12);
+        border-radius: 8px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ─── Ust logo + baslik ──────────────────────────────────────────────────────
+import os as _os
+LOGO_PATH = "promar_logo.png"
+_logo_col1, _logo_col2, _logo_col3 = st.columns([2, 1, 2])
+with _logo_col2:
+    if _os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH, use_container_width=True)
+st.markdown('<div class="promar-title">⚓ Navigasyon Tekhat Şeması Üreteci</div>', unsafe_allow_html=True)
+st.markdown('<div class="promar-subtitle">Malzeme listesinden otomatik tekhat şeması · Promar Deniz Malzemeleri</div>', unsafe_allow_html=True)
+st.markdown('<hr class="promar-divider">', unsafe_allow_html=True)
 
 def get_secret(name):
     try:
