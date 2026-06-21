@@ -101,7 +101,7 @@ st.markdown("""
 # ─── Ust logo + baslik ──────────────────────────────────────────────────────
 import os as _os
 LOGO_PATH = "promar_logo.png"
-_logo_col1, _logo_col2, _logo_col3 = st.columns([1, 1, 1])
+_logo_col1, _logo_col2, _logo_col3 = st.columns([1, 2.5, 1])
 with _logo_col2:
     if _os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH, use_container_width=True)
