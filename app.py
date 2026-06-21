@@ -101,12 +101,11 @@ st.markdown("""
 # ─── Ust logo + baslik ──────────────────────────────────────────────────────
 import os as _os
 LOGO_PATH = "promar_logo.png"
-_logo_col1, _logo_col2, _logo_col3 = st.columns([1, 2, 1])
+_logo_col1, _logo_col2, _logo_col3 = st.columns([1, 1, 1])
 with _logo_col2:
     if _os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH, use_container_width=True)
 st.markdown('<div class="promar-title">⚓ Navigasyon Tekhat Şeması Üreteci</div>', unsafe_allow_html=True)
-st.markdown('<div class="promar-subtitle">Malzeme listesinden otomatik tekhat şeması · Promar Deniz Malzemeleri</div>', unsafe_allow_html=True)
 st.markdown('<hr class="promar-divider">', unsafe_allow_html=True)
 
 def get_secret(name):
