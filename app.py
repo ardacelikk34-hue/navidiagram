@@ -82,13 +82,26 @@ st.markdown("""
         background: rgba(255,255,255,0.12);
         border-radius: 8px;
     }
+    /* Sidebar basliklari (Ayarlar, Adimlar vb.) beyaz ve net */
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] span,
+    section[data-testid="stSidebar"] label {
+        color: #FFFFFF !important;
+    }
+    section[data-testid="stSidebar"] .stMetric label,
+    section[data-testid="stSidebar"] [data-testid="stMetricValue"] {
+        color: #FFFFFF !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ─── Ust logo + baslik ──────────────────────────────────────────────────────
 import os as _os
 LOGO_PATH = "promar_logo.png"
-_logo_col1, _logo_col2, _logo_col3 = st.columns([2, 1, 2])
+_logo_col1, _logo_col2, _logo_col3 = st.columns([1, 2, 1])
 with _logo_col2:
     if _os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH, use_container_width=True)
