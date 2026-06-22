@@ -775,3 +775,407 @@ if "layout_data" in st.session_state:
 
     with st.expander("🔧 Ham JSON"):
         st.json(data)
+
+
+# ═══════════════════════════════════════════════════════════════
+# ADIM 4 — NAVCOM YERLEŞİM ÖNİZLEMESİ
+# ═══════════════════════════════════════════════════════════════
+if "layout_data" in st.session_state:
+    data = st.session_state["layout_data"]
+    cihazlar = data.get("cihazlar", [])
+
+    st.header("🗺️ Adım 4 — NAVCOM Yerleşim Önizlemesi")
+
+    if st.button("🖼️ NAVCOM Önizlemesi Oluştur", type="primary"):
+        from PIL import Image, ImageDraw, ImageFont
+        import io
+
+        # ── Sayfa boyutu: A3 landscape, 150dpi ──────────────────
+        W, H = 1754, 1240  # A3 landscape @ 150dpi
+        MARGIN = 40
+
+        # ── Lokasyon tanımları ───────────────────────────────────
+        # Dikey sıralama: MAST → BRIDGE CONSOLE → UNDER CONSOLE
+        # → TECHNICAL AREA → PORT/STBD WING → CPT.CABIN
+        # → STEERING ROOM → HULL
+        # Sabit konumlar (projeye göre opsiyonel olanlar cihaz varsa gösterilir)
+
+        LOK_SIRALAMA = [
+            "MAST",
+            "FLY_BRIDGE",
+            "BRIDGE_CONSOLE",
+            "PORT_WING",
+            "STBD_WING",
+            "UNDER_CONSOLE",
+            "CPT_CABIN",
+            "TECHNICAL_AREA",
+            "STEERING_ROOM",
+            "HULL",
+        ]
+
+        LOK_ISIMLER = {
+            "MAST": "MAST",
+            "FLY_BRIDGE": "FLY BRIDGE",
+            "BRIDGE_CONSOLE": "BRIDGE CONSOLE",
+            "PORT_WING": "PORT WING",
+            "STBD_WING": "STBD WING",
+            "UNDER_CONSOLE": "UNDER CONSOLE",
+            "CPT_CABIN": "CPT. CABIN",
+            "TECHNICAL_AREA": "TECHNICAL AREA",
+            "STEERING_ROOM": "STEERING ROOM",
+            "HULL": "HULL",
+        }
+
+        # ── Cihazları lokasyona göre grupla ─────────────────────
+        def normalize_lok(lok):
+            """Lokasyon adını standart anahtara çevir."""
+            lok = lok.upper().replace(" ", "_").replace(".", "")
+            mapping = {
+                "BRIDGE": "BRIDGE_CONSOLE",
+                "BRIDGE_CONSOLE": "BRIDGE_CONSOLE",
+                "MAIN_CONSOLE": "BRIDGE_CONSOLE",
+                "UNDER_CONSOLE": "UNDER_CONSOLE",
+                "UNDERCONSOLE": "UNDER_CONSOLE",
+                "TECHNICAL_AREA": "TECHNICAL_AREA",
+                "TECHNICAL": "TECHNICAL_AREA",
+                "MAST": "MAST",
+                "HULL": "HULL",
+                "HULL_AREA": "HULL",
+                "STEERING_ROOM": "STEERING_ROOM",
+                "STEERING": "STEERING_ROOM",
+                "PORT_WING": "PORT_WING",
+                "STBD_WING": "STBD_WING",
+                "STARBOARD_WING": "STBD_WING",
+                "CPT_CABIN": "CPT_CABIN",
+                "CAPTAINS_CABIN": "CPT_CABIN",
+                "FLY_BRIDGE": "FLY_BRIDGE",
+                "FLYBRIDGE": "FLY_BRIDGE",
+            }
+            for k, v in mapping.items():
+                if k in lok:
+                    return v
+            return lok
+
+        lok_gruplari = {}
+        for c in cihazlar:
+            lok = normalize_lok(c.get("lokasyon", "BRIDGE_CONSOLE"))
+            if lok not in lok_gruplari:
+                lok_gruplari[lok] = []
+            lok_gruplari[lok].append(c)
+
+        # Sadece cihaz olan lokasyonları al, sırayla
+        aktif_loklar = [l for l in LOK_SIRALAMA if l in lok_gruplari]
+        # Listede olmayan ama cihaz olan lokasyonlar da ekle
+        for l in lok_gruplari:
+            if l not in aktif_loklar:
+                aktif_loklar.append(l)
+
+        # ── Görsel boyut hiyerarşisi ─────────────────────────────
+        # Cihaz tipine göre göreceli boyut katsayısı
+        BOYUT_KATSAYI = {
+            "radar": 1.8,
+            "dome": 1.6,
+            "tvro": 1.6,
+            "antenna": 0.5,
+            "anten": 0.5,
+            "mfd": 1.0,
+            "monitor": 1.0,
+            "display": 0.9,
+            "ekran": 0.9,
+            "chartplotter": 1.0,
+            "processor": 0.7,
+            "computer": 0.7,
+            "module": 0.65,
+            "autopilot": 0.75,
+            "compass": 0.55,
+            "gps": 0.5,
+            "vhf": 0.7,
+            "ais": 0.7,
+            "default": 0.75,
+        }
+
+        def gorsel_katsayi(c):
+            """Cihaz adından göreceli boyut katsayısı tahmin et."""
+            metin = (str(c.get("marka","")) + " " + str(c.get("model",""))).lower()
+            for anahtar, katsayi in BOYUT_KATSAYI.items():
+                if anahtar in metin:
+                    return katsayi
+            return BOYUT_KATSAYI["default"]
+
+        # ── Temel cihaz boyutu (sayfaya sığdırma algoritması) ────
+        # Toplam cihaz sayısına göre temel boyutu ayarla
+        toplam_cihaz = len(cihazlar)
+        if toplam_cihaz <= 5:
+            TABAN_BOYUT = 160
+        elif toplam_cihaz <= 10:
+            TABAN_BOYUT = 130
+        elif toplam_cihaz <= 15:
+            TABAN_BOYUT = 110
+        elif toplam_cihaz <= 20:
+            TABAN_BOYUT = 90
+        else:
+            TABAN_BOYUT = 70
+
+        # ── Sayfa oluştur ────────────────────────────────────────
+        img = Image.new("RGB", (W, H), color=(255, 255, 255))
+        draw = ImageDraw.Draw(img)
+
+        # Dış çerçeve
+        draw.rectangle([5, 5, W-5, H-5], outline=(0, 0, 0), width=2)
+
+        # Font (varsayılan kullan)
+        try:
+            font_baslik = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+            font_kucuk = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
+            font_cihaz = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 11)
+        except:
+            font_baslik = ImageFont.load_default()
+            font_kucuk = ImageFont.load_default()
+            font_cihaz = ImageFont.load_default()
+
+        # ── Lokasyon kutularını yerleştir ────────────────────────
+        # Dikey akış: her lokasyon bir satır
+        # Yatay: PORT/STBD WING ve CPT.CABIN yan yana küçük kutular
+
+        # Yan yana gidecek lokasyonlar (küçük, sağ taraf)
+        YAN_YANA = {"PORT_WING", "STBD_WING", "CPT_CABIN"}
+
+        # Ana lokasyonlar (dikey sütun, sol-merkez)
+        ANA_LOKLAR = [l for l in aktif_loklar if l not in YAN_YANA]
+        YAN_LOKLAR = [l for l in aktif_loklar if l in YAN_YANA]
+
+        # Kullanılabilir alan
+        alan_x1 = MARGIN
+        alan_y1 = MARGIN
+        alan_x2 = W - MARGIN
+        alan_y2 = H - 80  # Alt başlık için yer
+
+        # Yan lokasyonlar için sağ alan ayır (varsa)
+        if YAN_LOKLAR:
+            yan_genislik = 200
+            ana_alan_x2 = alan_x2 - yan_genislik - 10
+        else:
+            ana_alan_x2 = alan_x2
+            yan_genislik = 0
+
+        # Her ana lokasyon için yükseklik hesapla
+        def lok_yukseklik(lok):
+            """Lokasyondaki cihaz sayısına göre kutu yüksekliği."""
+            n = len(lok_gruplari.get(lok, []))
+            gorseller = [c for c in lok_gruplari.get(lok, []) if c.get("gorsel")]
+            if not gorseller:
+                return max(60, n * 30 + 40)
+            max_h = max(int(TABAN_BOYUT * gorsel_katsayi(c)) for c in gorseller)
+            return max_h + 70  # üst başlık + alt boşluk
+
+        toplam_yukseklik = sum(lok_yukseklik(l) + 10 for l in ANA_LOKLAR)
+        alan_yuksekligi = alan_y2 - alan_y1
+
+        # Ölçek faktörü: sığmazsa küçült
+        if toplam_yukseklik > alan_yuksekligi:
+            olcek = alan_yuksekligi / toplam_yukseklik
+        else:
+            olcek = 1.0
+
+        # ── Ana lokasyonları çiz ─────────────────────────────────
+        mevcut_y = alan_y1
+        lok_koordinatlari = {}  # Sonraki adımlar için sakla
+
+        for lok in ANA_LOKLAR:
+            cihazlar_burada = lok_gruplari.get(lok, [])
+            kutu_h = int(lok_yukseklik(lok) * olcek)
+            kutu_x1 = alan_x1
+            kutu_x2 = ana_alan_x2
+            kutu_y1 = mevcut_y
+            kutu_y2 = mevcut_y + kutu_h
+
+            lok_koordinatlari[lok] = (kutu_x1, kutu_y1, kutu_x2, kutu_y2)
+
+            # Kesik çizgili mavi kutu
+            dash_len = 8
+            gap_len = 5
+            mavi = (44, 86, 151)
+            # Üst kenar
+            x = kutu_x1
+            while x < kutu_x2:
+                draw.line([(x, kutu_y1), (min(x+dash_len, kutu_x2), kutu_y1)],
+                         fill=mavi, width=2)
+                x += dash_len + gap_len
+            # Alt kenar
+            x = kutu_x1
+            while x < kutu_x2:
+                draw.line([(x, kutu_y2), (min(x+dash_len, kutu_x2), kutu_y2)],
+                         fill=mavi, width=2)
+                x += dash_len + gap_len
+            # Sol kenar
+            y = kutu_y1
+            while y < kutu_y2:
+                draw.line([(kutu_x1, y), (kutu_x1, min(y+dash_len, kutu_y2))],
+                         fill=mavi, width=2)
+                y += dash_len + gap_len
+            # Sağ kenar
+            y = kutu_y1
+            while y < kutu_y2:
+                draw.line([(kutu_x2, y), (kutu_x2, min(y+dash_len, kutu_y2))],
+                         fill=mavi, width=2)
+                y += dash_len + gap_len
+
+            # Lokasyon başlığı (sol üst)
+            baslik = LOK_ISIMLER.get(lok, lok.replace("_", " "))
+            draw.text((kutu_x1 + 8, kutu_y1 + 4), baslik,
+                     fill=mavi, font=font_baslik)
+
+            # ── Cihazları yerleştir (alt hizalı) ─────────────────
+            taban_y = kutu_y2 - 12  # alt hizalama çizgisi
+            ici_x1 = kutu_x1 + 10
+            ici_x2 = kutu_x2 - 10
+            ici_genislik = ici_x2 - ici_x1
+
+            # Cihaz genişliklerini hesapla
+            cihaz_bilgileri = []
+            for c in cihazlar_burada:
+                katsayi = gorsel_katsayi(c) * olcek
+                c_h = int(TABAN_BOYUT * katsayi)
+                # En-boy oranı: görselden al, yoksa 4:3 varsay
+                if c.get("gorsel") and Path(c["gorsel"]).exists():
+                    try:
+                        tmp = Image.open(c["gorsel"])
+                        en_boy = tmp.width / tmp.height
+                        c_w = int(c_h * en_boy)
+                        tmp.close()
+                    except:
+                        c_w = int(c_h * 1.2)
+                else:
+                    c_w = int(c_h * 1.2)
+                cihaz_bilgileri.append({"c": c, "w": c_w, "h": c_h})
+
+            # Toplam genişlik kontrolü - sığmazsa küçült
+            ARALIK = 15
+            toplam_w = sum(cb["w"] for cb in cihaz_bilgileri) + ARALIK * (len(cihaz_bilgileri) - 1)
+            if toplam_w > ici_genislik and cihaz_bilgileri:
+                kucultme = ici_genislik / toplam_w
+                for cb in cihaz_bilgileri:
+                    cb["w"] = int(cb["w"] * kucultme)
+                    cb["h"] = int(cb["h"] * kucultme)
+
+            # Cihazları sol→sağ, alt hizalı yerleştir
+            mevcut_cx = ici_x1
+            for cb in cihaz_bilgileri:
+                c = cb["c"]
+                c_w, c_h = cb["w"], cb["h"]
+                c_x = mevcut_cx
+                c_y = taban_y - c_h  # alt hizalama
+
+                # Görseli çiz
+                if c.get("gorsel") and Path(c["gorsel"]).exists():
+                    try:
+                        gorsel = Image.open(c["gorsel"]).convert("RGBA")
+                        gorsel = gorsel.resize((c_w, c_h), Image.LANCZOS)
+                        # Şeffaf arka plan varsa beyaz zemine yapıştır
+                        beyaz = Image.new("RGBA", gorsel.size, (255, 255, 255, 255))
+                        beyaz.paste(gorsel, mask=gorsel.split()[3] if gorsel.mode == "RGBA" else None)
+                        img.paste(beyaz.convert("RGB"), (c_x, c_y))
+                    except:
+                        # Görsel yüklenemezse gri kutu
+                        draw.rectangle([c_x, c_y, c_x+c_w, c_y+c_h],
+                                      fill=(220, 220, 220), outline=(150, 150, 150))
+                else:
+                    # Görsel yoksa gri kutu
+                    draw.rectangle([c_x, c_y, c_x+c_w, c_y+c_h],
+                                  fill=(230, 230, 230), outline=(180, 180, 180))
+                    draw.text((c_x + 4, c_y + c_h//2 - 6), "?",
+                             fill=(100, 100, 100), font=font_kucuk)
+
+                # Cihaz ismi (üstte, kırmızı)
+                isim = f"{c.get('marka','')} {c.get('model','')}".strip()
+                if len(isim) > 20:
+                    isim = isim[:18] + ".."
+                draw.text((c_x, c_y - 16), isim,
+                         fill=(200, 30, 30), font=font_cihaz)
+
+                mevcut_cx += c_w + ARALIK
+
+            mevcut_y = kutu_y2 + 10
+
+        # ── Yan lokasyonları çiz (sağ sütun) ────────────────────
+        if YAN_LOKLAR:
+            yan_x1 = ana_alan_x2 + 10
+            yan_x2 = alan_x2
+            yan_mevcut_y = alan_y1
+            yan_h = (alan_y2 - alan_y1) // max(len(YAN_LOKLAR), 1)
+
+            for lok in YAN_LOKLAR:
+                cihazlar_burada = lok_gruplari.get(lok, [])
+                kutu_x1 = yan_x1
+                kutu_x2 = yan_x2
+                kutu_y1 = yan_mevcut_y
+                kutu_y2 = yan_mevcut_y + yan_h - 10
+
+                mavi = (44, 86, 151)
+                # Kesik çizgili kutu
+                dash_len = 6
+                gap_len = 4
+                for x in range(kutu_x1, kutu_x2, dash_len+gap_len):
+                    draw.line([(x, kutu_y1), (min(x+dash_len, kutu_x2), kutu_y1)], fill=mavi, width=2)
+                    draw.line([(x, kutu_y2), (min(x+dash_len, kutu_x2), kutu_y2)], fill=mavi, width=2)
+                for y in range(kutu_y1, kutu_y2, dash_len+gap_len):
+                    draw.line([(kutu_x1, y), (kutu_x1, min(y+dash_len, kutu_y2))], fill=mavi, width=2)
+                    draw.line([(kutu_x2, y), (kutu_x2, min(y+dash_len, kutu_y2))], fill=mavi, width=2)
+
+                baslik = LOK_ISIMLER.get(lok, lok.replace("_", " "))
+                draw.text((kutu_x1 + 5, kutu_y1 + 4), baslik, fill=mavi, font=font_kucuk)
+
+                # Cihazları dikey olarak yerleştir (küçük kutularda)
+                ic_y = kutu_y1 + 24
+                for c in cihazlar_burada:
+                    c_h = min(60, (kutu_y2 - ic_y - 10) // max(len(cihazlar_burada), 1))
+                    c_w = int(c_h * 1.2)
+                    c_x = kutu_x1 + (yan_x2 - yan_x1 - c_w) // 2
+
+                    if c.get("gorsel") and Path(c["gorsel"]).exists():
+                        try:
+                            gorsel = Image.open(c["gorsel"]).convert("RGBA")
+                            gorsel = gorsel.resize((c_w, c_h), Image.LANCZOS)
+                            beyaz = Image.new("RGBA", gorsel.size, (255, 255, 255, 255))
+                            beyaz.paste(gorsel, mask=gorsel.split()[3] if gorsel.mode == "RGBA" else None)
+                            img.paste(beyaz.convert("RGB"), (c_x, ic_y))
+                        except:
+                            draw.rectangle([c_x, ic_y, c_x+c_w, ic_y+c_h],
+                                         fill=(220,220,220), outline=(150,150,150))
+                    else:
+                        draw.rectangle([c_x, ic_y, c_x+c_w, ic_y+c_h],
+                                      fill=(230,230,230), outline=(180,180,180))
+
+                    isim = f"{c.get('marka','')} {c.get('model','')}".strip()
+                    if len(isim) > 15:
+                        isim = isim[:13] + ".."
+                    draw.text((kutu_x1 + 3, ic_y + c_h + 2), isim,
+                             fill=(200, 30, 30), font=font_kucuk)
+                    ic_y += c_h + 22
+
+                yan_mevcut_y += yan_h
+
+        # ── Alt başlık bloğu ─────────────────────────────────────
+        draw.rectangle([5, H-75, W-5, H-5], fill=(245, 245, 245), outline=(0,0,0), width=1)
+        gemi = data.get("gemi", "")
+        proje = data.get("proje_no", "")
+        draw.text((20, H-60), f"NAVCOM SYSTEM LAYOUT", fill=(0,0,0), font=font_baslik)
+        draw.text((20, H-38), f"Gemi: {gemi}  |  Proje No: {proje}", fill=(80,80,80), font=font_kucuk)
+        draw.text((W-200, H-45), "PROMAR DENİZ MALZEMELERİ A.Ş.", fill=(44,86,151), font=font_kucuk)
+
+        # ── PNG olarak kaydet ve göster ──────────────────────────
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
+
+        st.success("✅ Yerleşim önizlemesi hazır!")
+        st.image(buf, caption="NAVCOM Yerleşim Önizlemesi (Kablo yok — Aşama A)", use_container_width=True)
+
+        # İndirme butonu
+        buf.seek(0)
+        st.download_button(
+            label="⬇️ PNG İndir",
+            data=buf,
+            file_name=f"navcom_yerlasim_{gemi or 'proje'}.png",
+            mime="image/png"
+        )
